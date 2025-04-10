@@ -1,54 +1,58 @@
 package com.api_gateway.api_gateway.controller;
 
+import com.api_gateway.api_gateway.dtos.StudentDto;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api")
+@RequiredArgsConstructor
 public class GatewayController {
     private final RestTemplate restTemplate;
-    private static final String CORE_SERVICE_URL = "http://localhost:8082";
 
-    @Autowired
     public GatewayController(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
-    @RequestMapping(value = "/**", method = RequestMethod.GET)
-    public ResponseEntity<String> handleGetRequest(HttpServletRequest request) {
-        String path = request.getRequestURI().replaceFirst("/api/get", "");
-        String url = CORE_SERVICE_URL + path;
-
-        return restTemplate.getForEntity(url, String.class);
+    @GetMapping("/get")
+    public final List<StudentDto> getIStudents (){
+        String url = "http://core:8082/get";
+        ResponseEntity<List<StudentDto>> response = restTemplate.exchange(url, HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<StudentDto>>() {} );
+        return response.getBody();
     }
 
-    @RequestMapping(value = "/**", method = RequestMethod.POST)
-    public ResponseEntity<String> handlePostRequest(HttpServletRequest request, @RequestBody String body) {
-        String path = request.getRequestURI().replaceFirst("/api/post", "");
-        String url = CORE_SERVICE_URL + path;
-
-        return restTemplate.postForEntity(url, body, String.class);
+    @PostMapping("/post")
+    public StudentDto createUser(@RequestBody StudentDto student) {
+        // Отправляем запрос POST в Core сервис
+        HttpHeaders headers = new HttpHeaders();
+        String url = "http://core:8082/post";
+        HttpEntity<StudentDto> entity = new HttpEntity<>(student, headers);
+        ResponseEntity<StudentDto> response = restTemplate.exchange(url, HttpMethod.POST, entity, StudentDto.class);
+        return response.getBody();
     }
 
-    @RequestMapping(value = "/**", method = RequestMethod.PUT)
-    public ResponseEntity<String> handlePutRequest(HttpServletRequest request, @RequestBody String body) {
-        String path = request.getRequestURI().replaceFirst("/api/put", "");
-        String url = CORE_SERVICE_URL + path;
-
-        restTemplate.put(url, body);
-        return ResponseEntity.ok().build();
+    @PutMapping("/pur/{id}")
+    public void handlePutRequest(@PathVariable String id, @RequestBody String body) {
+        String url = "http://core:8082/put/{id}";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        restTemplate.exchange(url, HttpMethod.PATCH, entity, String.class);
     }
 
-    @RequestMapping(value = "/**", method = RequestMethod.DELETE)
-    public ResponseEntity<String> handleDeleteRequest(HttpServletRequest request) {
-        String path = request.getRequestURI().replaceFirst("/api/delete", "");
-        String url = CORE_SERVICE_URL + path;
-
-        restTemplate.delete(url);
-        return ResponseEntity.ok().build();
+    @DeleteMapping("/delete/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteStudent(@PathVariable int id) {
+        String url = "http://core:8082/delete/{id}";
+        restTemplate.exchange(url, HttpMethod.DELETE, null, Void.class);
     }
 }
